@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.4.0-[WebUI_fork]] - 2026-06-12
+
+### Added
+
+- Web UI built with Flask - features all major CLI functionality in a browser interface
+- Web UI language support (English / Traditional Chinese)
+- Single cat editing by ID (own/remove/set level)
+- Batch cat operations (unlock all, obtainable, unobtainable, reset levels, discard all)
+- Download save from server by transfer code
+- Persistent transfer/confirmation code display
+
+### Changed
+
+- README updated with Web UI documentation
+
 ## [3.4.0] - 2026-06-01
 
 ### Added

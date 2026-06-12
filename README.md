@@ -435,6 +435,38 @@ Again, you might need change `py` for `python` or `python3`
 
 If you want to use the editor again all you need to do is run the `py -m bcsfe` command
 
+## Web UI
+
+BCSFE also includes an optional web interface built with Flask.
+
+### Running the Web UI
+
+```sh
+# Install Flask (required for Web UI)
+pip install flask
+
+# Run the web interface
+cd BCSFE-Python
+python webui.py
+
+# Or use the installed command
+bcsfe-web
+```
+
+The Web UI runs on `http://127.0.0.1:5005` by default. You can change the port with the `BCSFE_WEB_PORT` environment variable:
+
+```sh
+BCSFE_WEB_PORT=8080 python webui.py
+```
+
+### Web UI features
+
+- Upload, edit, and download SAVE_DATA files
+- Full support for items, cats, map chapters, gamatoto, and more
+- Save file management (upload to server, download from codes, region/version conversion)
+- Batch operations (max all cats, clear all chapters, etc.)
+- Configurable UI language (English / Traditional Chinese)
+
 ## Documentation
 
 - [Custom Editor Locales](https://codeberg.org/fieryhenry/ExampleEditorLocale)
