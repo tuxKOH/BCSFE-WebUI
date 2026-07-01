@@ -18,6 +18,8 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 dependencies = ["pyjwt", "requests", "pyyaml", "argparse"]
+[project.optional-dependencies]
+web = ["flask"]
 dynamic = ["version"]
 keywords = ["battle cats", "save editor", "hacking"]
 
@@ -38,3 +40,4 @@ typeCheckingMode = "strict"
 
 [project.scripts]
 bcsfe = "bcsfe:run"
+bcsfe-web = "bcsfe.webui:run_webui"

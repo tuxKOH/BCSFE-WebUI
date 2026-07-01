@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BCSFE - Battle Cats Save File Editor</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="logo">BCSFE</span>
+      <span class="logo-sub">Save File Editor</span>
+    </div>
+    <div class="topbar-right">
+      {% if last_transfer_code and last_confirmation_code %}
+      <span class="code-badge" title="Transfer code: {{ last_transfer_code }} / Confirmation code: {{ last_confirmation_code }}">TC: {{ last_transfer_code[:8] }}..</span>
+      {% endif %}
+      {% if save_info %}
+      <span class="save-badge">{{ t("Save loaded") }}</span>
+      <span class="save-detail">{{ save_info.inquiry_code }}</span>
+      <span class="save-detail">{{ save_info.game_version }}</span>
+      <span class="save-detail">{{ save_info.cc }}</span>
+      {% endif %}
+      <form action="/set_lang" method="post" class="lang-form">
+        <select name="lang" class="input input-lang" onchange="this.form.submit()">
+          <option value="en" {% if ui_lang == 'en' %}selected{% endif %}>EN</option>
+          <option value="zh-Hant" {% if ui_lang == 'zh-Hant' %}selected{% endif %}>中文</option>
+        </select>
+      </form>
+    </div>
+  </header>
+
+  <div class="main">
+    {% if save_info %}
+    <nav class="sidebar" id="sidebar">
+      <a href="#section-save" class="nav-link active">{{ t("Save") }}</a>
+      <a href="#section-items" class="nav-link">{{ t("Items") }}</a>
+      <a href="#section-cats" class="nav-link">{{ t("Cats") }}</a>
+      <a href="#section-map" class="nav-link">{{ t("Map") }}</a>
+      <a href="#section-gamatoto" class="nav-link">{{ t("Gamatoto") }}</a>
+      <a href="#section-account" class="nav-link">{{ t("Account") }}</a>
+      <a href="#section-fixes" class="nav-link">{{ t("Fixes") }}</a>
+      <a href="#section-other" class="nav-link">{{ t("Other") }}</a>
+      <a href="#section-seeds" class="nav-link">{{ t("Seeds") }}</a>
+      <a href="#section-config" class="nav-link">{{ t("Config") }}</a>
+    </nav>
+
+    <div class="content" id="content">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="flash-list">
+          {% for message in messages %}
+          <div class="flash">{{ message }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </div>
+    {% else %}
+    <div class="content content-center">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="flash-list">
+          {% for message in messages %}
+          <div class="flash">{{ message }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% endwith %}
+
+      <div class="upload-card">
+        <h2>{{ t("Open Save File") }}</h2>
+        <p>{{ t("Select your SAVE_DATA file to begin editing.") }}</p>
+        <form action="{{ url_for('load_save') }}" method="post" enctype="multipart/form-data" class="upload-form">
+          <div class="file-input-wrapper">
+            <input type="file" name="save_file" id="save_file" class="file-input" required>
+            <label for="save_file" class="file-label">{{ t("Choose file") }}</label>
+          </div>
+          <button type="submit" class="btn btn-primary">{{ t("Load Save") }}</button>
+        </form>
+      </div>
+
+      <div class="upload-card" style="margin-top: 16px;">
+        <h2>{{ t("Download Save from Server") }}</h2>
+        <p>{{ t("Enter your transfer code and confirmation code to download a save from the server.") }}</p>
+        <form action="{{ url_for('download_from_codes') }}" method="post" class="upload-form">
+          <input type="text" name="transfer_code" class="input" placeholder="{{ t('Transfer code') }}" required style="width: 100%;">
+          <input type="text" name="confirmation_code" class="input" placeholder="{{ t('Confirmation code') }}" required style="width: 100%;">
+          <select name="cc" class="input" style="width: 100%;">
+            <option value="en">en (EN)</option>
+            <option value="jp">jp (JP)</option>
+            <option value="kr">kr (KR)</option>
+            <option value="tw">tw (TW)</option>
+          </select>
+          <button type="submit" class="btn btn-primary">{{ t("Download") }}</button>
+        </form>
+      </div>
+
+
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var navLinks = document.querySelectorAll('.nav-link');
+  var sections = document.querySelectorAll('.section');
+
+  function activateSection(id) {
+    navLinks.forEach(function(l) { l.classList.remove('active'); });
+    var link = document.querySelector('a[href="#' + id + '"]');
+    if (link) link.classList.add('active');
+
+    sections.forEach(function(s) {
+      s.style.display = (s.id === id) ? 'block' : 'none';
+    });
+  }
+
+  navLinks.forEach(function(link) {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      var id = this.getAttribute('href').substring(1);
+      activateSection(id);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  var hash = window.location.hash.substring(1);
+  if (hash && document.getElementById(hash)) {
+    activateSection(hash);
+  } else {
+    var first = document.querySelector('.section');
+    if (first) activateSection(first.id);
+  }
+
+  // Before any form submit, remember the current section
+  document.querySelectorAll('form').forEach(function(f) {
+    f.addEventListener('submit', function() {
+      var activeSec = document.querySelector('.section[style*="block"]');
+      if (activeSec) {
+        sessionStorage.setItem('bcsfe_section', activeSec.id);
+      }
+    });
+  });
+
+  // On page load, restore the last section
+  var savedSection = sessionStorage.getItem('bcsfe_section');
+  if (savedSection && document.getElementById(savedSection)) {
+    activateSection(savedSection);
+    sessionStorage.removeItem('bcsfe_section');
+  }
+
+  // Flash dismiss on click
+  document.querySelectorAll('.flash').forEach(function(f) {
+    f.addEventListener('click', function() {
+      if (f.parentNode) f.parentNode.removeChild(f);
+    });
+  });
+});
+</script>
+</body>
+</html>
