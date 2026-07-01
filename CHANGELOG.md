@@ -21,6 +21,13 @@ your save file from transfer codes
 
 - Feature in the locale config editor to create an empty new locale directly in the editor
 
+- Web UI built with Flask - features all major CLI functionality in a browser interface
+- Web UI language support (English / Traditional Chinese)
+- Single cat editing by ID (own/remove/set level)
+- Batch cat operations (unlock all, obtainable, unobtainable, reset levels, discard all)
+- Download save from server by transfer code
+- Persistent transfer/confirmation code display
+
 ### Changed
 
 - Waydroid is now treated like another adb device so it no longer needs separate features and
@@ -32,6 +39,7 @@ caused issues for certain features - please report any issues**
 - Built-in locales and themes are copied to an external directory, this also means the editor should
 still work as a python wheel.
 
+- README updated with Web UI documentation
 
 ### Removed
 
@@ -46,7 +54,6 @@ in the editor
 - Issue with the rank-up sale showing hundreds of times if you set base upgrades very high
 
 - Editor crash if you set your request timeout too high
-
 
 ## [3.4.0] - 2026-06-01
 
