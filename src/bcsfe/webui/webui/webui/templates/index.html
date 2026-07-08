@@ -1,0 +1,708 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<!-- ======== SAVE ======== -->
+<section id="section-save" class="section">
+  <h2 class="section-title">{{ t("Save Management") }}</h2>
+
+  {% if last_transfer_code and last_confirmation_code %}
+  <div class="card">
+    <h3 class="card-title">{{ t("Upload Codes") }}</h3>
+    <div class="code-display">
+      <div class="code-row"><span class="code-label">Transfer code:</span><span class="code-value">{{ last_transfer_code }}</span></div>
+      <div class="code-row"><span class="code-label">Confirmation code:</span><span class="code-value">{{ last_confirmation_code }}</span></div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-row">
+      <form action="{{ url_for('download_save') }}" method="post" class="inline-form">
+        <button type="submit" class="btn btn-primary">{{ t("Download Save") }}</button>
+      </form>
+      <form action="{{ url_for('export_json') }}" method="post" class="inline-form">
+        <button type="submit" class="btn">{{ t("Export as JSON") }}</button>
+      </form>
+      <form action="{{ url_for('save_upload') }}" method="post" class="inline-form">
+        <button type="submit" class="btn">{{ t("Upload to Server") }}</button>
+      </form>
+      <form action="{{ url_for('unload_save') }}" method="post" class="inline-form">
+        <button type="submit" class="btn btn-danger">{{ t("Close Save") }}</button>
+      </form>
+
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">{{ t("Convert Region") }}</h3>
+    <form action="{{ url_for('convert_region') }}" method="post" class="form-inline">
+      <select name="target_cc" class="input">
+        <option value="en">en (EN)</option>
+        <option value="jp">jp (JP)</option>
+        <option value="kr">kr (KR)</option>
+        <option value="tw">tw (TW)</option>
+      </select>
+      <button type="submit" class="btn">{{ t("Convert") }}</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">{{ t("Download Save from Server") }}</h3>
+    <form action="{{ url_for('download_from_codes') }}" method="post" class="form-inline">
+      <input type="text" name="transfer_code" class="input" placeholder="{{ t('Transfer code') }}" required>
+      <input type="text" name="confirmation_code" class="input" placeholder="{{ t('Confirmation code') }}" required>
+      <select name="cc" class="input">
+        <option value="en">en (EN)</option>
+        <option value="jp">jp (JP)</option>
+        <option value="kr">kr (KR)</option>
+        <option value="tw">tw (TW)</option>
+      </select>
+      <button type="submit" class="btn">{{ t("Download") }}</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">{{ t("Convert Game Version") }}</h3>
+    <form action="{{ url_for('convert_version') }}" method="post" class="form-inline">
+      <input type="text" name="target_gv" class="input" placeholder="e.g. 13.0" required>
+      <button type="submit" class="btn">{{ t("Convert") }}</button>
+    </form>
+  </div>
+</section>
+
+<!-- ======== ITEMS ======== -->
+<section id="section-items" class="section">
+  <h2 class="section-title">{{ t("Items") }}</h2>
+
+  <div class="card">
+    <h3 class="card-title">{{ t("Currency") }}</h3>
+    <div class="grid-2col">
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="catfood">
+        <label class="field-label">{{ t("Cat Food") }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="{{ save_info.catfood }}" min="0" max="{{ save_info.catfood_max }}">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="xp">
+        <label class="field-label">{{ t("XP") }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="{{ save_info.xp }}" min="0" max="{{ save_info.xp_max }}">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">{{ t("Tickets") }}</h3>
+    <div class="grid-2col">
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="normal_tickets">
+        <label class="field-label">{{ t("Normal Tickets") }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="{{ save_info.normal_tickets }}" min="0" max="{{ save_info.normal_tickets_max }}">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="rare_tickets">
+        <label class="field-label">{{ t("Rare Tickets") }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="{{ save_info.rare_tickets }}" min="0" max="{{ save_info.rare_tickets_max }}">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="platinum_tickets">
+        <label class="field-label">{{ t("Platinum Tickets") }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="{{ save_info.platinum_tickets }}" min="0">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="legend_tickets">
+        <label class="field-label">{{ t("Legend Tickets") }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="{{ save_info.legend_tickets }}" min="0">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="platinum_shards">
+        <label class="field-label">{{ t("Platinum Shards") }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="{{ save_info.platinum_shards }}" min="0">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="hundred_million_tickets">
+        <label class="field-label">{{ t("100M Tickets") }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="{{ save_info.hundred_million_tickets }}" min="0">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+    </div>
+    <div class="mt-1">
+      <form action="{{ url_for('rare_ticket_trade') }}" method="post" class="inline-form">
+        <button type="submit" class="btn">{{ t("Rare Ticket NP Trade") }}</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">{{ t("Resources") }}</h3>
+    <div class="grid-2col">
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="np">
+        <label class="field-label">{{ t("NP") }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="{{ save_info.np }}" min="0">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="leadership">
+        <label class="field-label">{{ t("Leadership") }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="{{ save_info.leadership }}" min="0">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="golden_cpu">
+        <label class="field-label">{{ t("Golden CPU") }}</label>
+        <div class="input-row">
+          <button type="submit" class="btn btn-sm">{{ t("Reset") }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if save_info.catseyes %}
+  <div class="card">
+    <h3 class="card-title">{{ t("Catseyes") }}</h3>
+    <div class="grid-2col">
+      {% for ce in save_info.catseyes %}
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="catseyes_{{ ce.idx }}">
+        <label class="field-label">{{ ce.name }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="{{ ce.value }}" min="0">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if save_info.catfruit %}
+  <div class="card">
+    <h3 class="card-title">{{ t("Catfruit") }}</h3>
+    <div class="grid-2col">
+      {% for cf in save_info.catfruit %}
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="catfruit_{{ cf.idx }}">
+        <label class="field-label">{{ cf.name }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="{{ cf.value }}" min="0">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if save_info.catamins %}
+  <div class="card">
+    <h3 class="card-title">{{ t("Catamins") }}</h3>
+    <div class="grid-2col">
+      {% for ca in save_info.catamins %}
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="catamin_{{ ca.idx }}">
+        <label class="field-label">{{ ca.name }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="{{ ca.value }}" min="0">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if save_info.battle_items %}
+  <div class="card">
+    <h3 class="card-title">{{ t("Battle Items") }}</h3>
+    <div class="grid-2col">
+      {% for bi in save_info.battle_items %}
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="battle_item_{{ bi.idx }}">
+        <label class="field-label">{{ bi.name }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="{{ bi.value }}" min="0">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+      {% endfor %}
+    </div>
+    <div class="mt-1">
+      <form action="{{ url_for('battle_items_endless') }}" method="post" class="inline-form">
+        <button type="submit" class="btn">{{ t("Make All Endless") }}</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <h3 class="card-title">{{ t("Other Items") }}</h3>
+    <div class="card-row">
+      <form action="{{ url_for('edit_other') }}" method="post" class="inline-form">
+        <input type="hidden" name="other_action" value="scheme_items">
+        <button type="submit" class="btn">{{ t("Edit Scheme Items") }}</button>
+      </form>
+
+      <form action="{{ url_for('edit_event_tickets') }}" method="post" class="inline-form">
+        <button type="submit" class="btn">{{ t("Edit Event Tickets") }}</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ======== CATS ======== -->
+<section id="section-cats" class="section">
+  <h2 class="section-title">{{ t("Cats") }}</h2>
+  <div class="card">
+    <h3 class="card-title">{{ t("Bulk Actions") }}</h3>
+    <div class="card-row">
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form">
+        <input type="hidden" name="cat_action" value="max_upgrade">
+        <button type="submit" class="btn">{{ t("Max Upgrade All") }}</button>
+      </form>
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form">
+        <input type="hidden" name="cat_action" value="true_form_all">
+        <button type="submit" class="btn">{{ t("True Form All") }}</button>
+      </form>
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form">
+        <input type="hidden" name="cat_action" value="fourth_form_all">
+        <button type="submit" class="btn">{{ t("Fourth Form All") }}</button>
+      </form>
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form">
+        <input type="hidden" name="cat_action" value="max_talents">
+        <button type="submit" class="btn">{{ t("Max Talents All") }}</button>
+      </form>
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form">
+        <input type="hidden" name="cat_action" value="unlock_cat_guide">
+        <button type="submit" class="btn">{{ t("Unlock Cat Guide") }}</button>
+      </form>
+    </div>
+    <div class="card-row" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #fecaca;">
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form">
+        <input type="hidden" name="cat_action" value="unlock_all">
+        <button type="submit" class="btn btn-danger" style="font-weight: 700;">{{ t("Unlock All Cats") }}</button>
+      </form>
+      <span style="color: #dc2626; font-size: 0.8rem;">{{ t("Includes abnormal cats, risk of ban") }}</span>
+    </div>
+    <div class="card-row" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form">
+        <input type="hidden" name="cat_action" value="reset_levels">
+        <button type="submit" class="btn" style="color: #dc2626;">{{ t("Reset Levels") }}</button>
+      </form>
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form">
+        <input type="hidden" name="cat_action" value="lock_all">
+        <button type="submit" class="btn" style="color: #dc2626;">{{ t("Lock All") }}</button>
+      </form>
+    </div>
+    <div class="card-row" style="margin-top: 8px;">
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form">
+        <input type="hidden" name="cat_action" value="unlock_obtainable">
+        <button type="submit" class="btn">{{ t("Get Obtainable Cats") }}</button>
+      </form>
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form">
+        <input type="hidden" name="cat_action" value="unlock_unobtainable">
+        <button type="submit" class="btn">{{ t("Get Unobtainable Cats") }}</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">{{ t("Single Cat") }}</h3>
+    <div class="grid-2col">
+      <div>
+        <label class="field-label">Cat ID</label>
+        <form action="{{ url_for('edit_cat_single') }}" method="post" class="form-inline">
+          <input type="hidden" name="cat_single_action" value="own">
+          <input type="number" name="cat_id" class="input" placeholder="ID" min="0" required>
+          <button type="submit" class="btn btn-sm">{{ t("Own") }}</button>
+        </form>
+        <form action="{{ url_for('edit_cat_single') }}" method="post" class="form-inline" style="margin-top: 4px;">
+          <input type="hidden" name="cat_single_action" value="unown">
+          <input type="number" name="cat_id" class="input" placeholder="ID" min="0" required>
+          <button type="submit" class="btn btn-sm">Remove</button>
+        </form>
+      </div>
+      <div>
+        <label class="field-label">Level (base + extra)</label>
+        <form action="{{ url_for('edit_cat_single') }}" method="post" class="form-inline">
+          <input type="hidden" name="cat_single_action" value="level">
+          <input type="number" name="cat_id" class="input" placeholder="ID" min="0" required style="width: 70px;">
+          <input type="number" name="base" class="input" placeholder="Base" min="0" value="9" style="width: 70px;">
+          <input type="number" name="plus" class="input" placeholder="Plus" min="0" value="0" style="width: 70px;">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">{{ t("Cat Storage") }}</h3>
+    <div class="card-row">
+      <form action="{{ url_for('edit_other') }}" method="post" class="inline-form">
+        <input type="hidden" name="other_action" value="special_skills">
+        <button type="submit" class="btn">{{ t("Edit Special Skills") }}</button>
+      </form>
+      <form action="{{ url_for('edit_item') }}" method="post" class="inline-form">
+        <input type="hidden" name="field" value="unlocked_slots">
+        <label class="field-label">{{ t("Unlocked Slots") }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="0" min="0">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ======== MAP ======== -->
+<section id="section-map" class="section">
+  <h2 class="section-title">{{ t("Map / Levels") }}</h2>
+  <div class="card">
+    <h3 class="card-title">{{ t("Main Story") }}</h3>
+    <div class="card-row">
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="clear_tutorial">
+        <button type="submit" class="btn">{{ t("Clear Tutorial") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="clear_story">
+        <button type="submit" class="btn">{{ t("Clear All Story") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="max_treasures">
+        <button type="submit" class="btn">{{ t("Max All Treasures") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="max_outbreaks">
+        <button type="submit" class="btn">{{ t("Clear All Outbreaks") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="itf_timed_scores">
+        <button type="submit" class="btn">{{ t("ITF Timed Scores") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="filibuster">
+        <button type="submit" class="btn">{{ t("Filibuster Reclearing") }}</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">{{ t("Advanced Chapters") }}</h3>
+    <div class="card-row">
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="max_aku">
+        <button type="submit" class="btn">{{ t("Clear Aku Realms") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="unlock_aku_realm">
+        <button type="submit" class="btn">{{ t("Unlock Aku Realm") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="max_uncanny">
+        <button type="submit" class="btn">{{ t("Clear Uncanny Legends") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="max_zero_legends">
+        <button type="submit" class="btn">{{ t("Clear Zero Legends") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="catamin_stages">
+        <button type="submit" class="btn">{{ t("Clear Catamin Stages") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="behemoth_culling">
+        <button type="submit" class="btn">{{ t("Behemoth Culling") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="catclaw">
+        <button type="submit" class="btn">{{ t("Catclaw Championships") }}</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">{{ t("Events & Gauntlets") }}</h3>
+    <div class="card-row">
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="max_sol">
+        <button type="submit" class="btn">{{ t("Clear SoL") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="max_event">
+        <button type="submit" class="btn">{{ t("Clear Events") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="max_collab">
+        <button type="submit" class="btn">{{ t("Clear Collab") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="max_gauntlets">
+        <button type="submit" class="btn">{{ t("Clear Gauntlets") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="collab_gauntlets">
+        <button type="submit" class="btn">{{ t("Collab Gauntlets") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="max_enigma">
+        <button type="submit" class="btn">{{ t("Clear Enigma Stages") }}</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">{{ t("Towers & Scores") }}</h3>
+    <div class="card-row">
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="max_towers">
+        <button type="submit" class="btn">{{ t("Clear Towers") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="max_legend_quest">
+        <button type="submit" class="btn">{{ t("Clear Legend Quest") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="challenge_score">
+        <button type="submit" class="btn">{{ t("Challenge Score") }}</button>
+      </form>
+      <form action="{{ url_for('edit_map') }}" method="post" class="inline-form">
+        <input type="hidden" name="map_action" value="dojo_score">
+        <button type="submit" class="btn">{{ t("Dojo Score") }}</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ======== GAMATOTO ======== -->
+<section id="section-gamatoto" class="section">
+  <h2 class="section-title">{{ t("Gamatoto") }}</h2>
+  <div class="card">
+    <div class="card-row">
+      <form action="{{ url_for('edit_gamatoto') }}" method="post" class="inline-form">
+        <input type="hidden" name="gamatoto_action" value="engineers">
+        <button type="submit" class="btn">{{ t("Edit Engineers") }}</button>
+      </form>
+      <form action="{{ url_for('edit_gamatoto') }}" method="post" class="inline-form">
+        <input type="hidden" name="gamatoto_action" value="base_materials">
+        <button type="submit" class="btn">{{ t("Edit Base Materials") }}</button>
+      </form>
+      <form action="{{ url_for('edit_gamatoto') }}" method="post" class="inline-form">
+        <input type="hidden" name="gamatoto_action" value="gamatoto_xp">
+        <button type="submit" class="btn">{{ t("Gamatoto XP Level") }}</button>
+      </form>
+      <form action="{{ url_for('edit_gamatoto') }}" method="post" class="inline-form">
+        <input type="hidden" name="gamatoto_action" value="gamatoto_helpers">
+        <button type="submit" class="btn">{{ t("Gamatoto Helpers") }}</button>
+      </form>
+      <form action="{{ url_for('edit_gamatoto') }}" method="post" class="inline-form">
+        <input type="hidden" name="gamatoto_action" value="ototo_cannon">
+        <button type="submit" class="btn">{{ t("Ototo Cannon") }}</button>
+      </form>
+      <form action="{{ url_for('edit_gamatoto') }}" method="post" class="inline-form">
+        <input type="hidden" name="gamatoto_action" value="cat_shrine">
+        <button type="submit" class="btn">{{ t("Cat Shrine") }}</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ======== ACCOUNT ======== -->
+<section id="section-account" class="section">
+  <h2 class="section-title">{{ t("Account") }}</h2>
+  <div class="card">
+    <div class="card-row">
+      <form action="{{ url_for('edit_account') }}" method="post" class="inline-form">
+        <input type="hidden" name="account_action" value="upload_items">
+        <button type="submit" class="btn">{{ t("Upload Items") }}</button>
+      </form>
+      <form action="{{ url_for('edit_account') }}" method="post" class="inline-form">
+        <input type="hidden" name="account_action" value="unban">
+        <button type="submit" class="btn">{{ t("Unban Account") }}</button>
+      </form>
+    </div>
+    <div class="form-inline mt-1">
+      <form action="{{ url_for('edit_account') }}" method="post" class="inline-form">
+        <input type="hidden" name="account_action" value="inquiry_code">
+        <label class="field-label">{{ t("Inquiry Code") }}</label>
+        <div class="input-row">
+          <input type="text" name="value" class="input" placeholder="New inquiry code">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ======== FIXES ======== -->
+<section id="section-fixes" class="section">
+  <h2 class="section-title">{{ t("Fixes") }}</h2>
+  <div class="card">
+    <div class="card-row">
+      <form action="{{ url_for('edit_fix') }}" method="post" class="inline-form">
+        <input type="hidden" name="fix_action" value="fix_gamatoto">
+        <button type="submit" class="btn">{{ t("Fix Gamatoto Crash") }}</button>
+      </form>
+      <form action="{{ url_for('edit_fix') }}" method="post" class="inline-form">
+        <input type="hidden" name="fix_action" value="fix_ototo">
+        <button type="submit" class="btn">{{ t("Fix Ototo Crash") }}</button>
+      </form>
+      <form action="{{ url_for('edit_fix') }}" method="post" class="inline-form">
+        <input type="hidden" name="fix_action" value="fix_time">
+        <button type="submit" class="btn">{{ t("Fix Time Errors") }}</button>
+      </form>
+      <form action="{{ url_for('edit_fix') }}" method="post" class="inline-form">
+        <input type="hidden" name="fix_action" value="fix_officer_pass">
+        <button type="submit" class="btn">{{ t("Fix Officer Pass Crash") }}</button>
+      </form>
+      <form action="{{ url_for('edit_fix') }}" method="post" class="inline-form">
+        <input type="hidden" name="fix_action" value="unlock_equip">
+        <button type="submit" class="btn">{{ t("Unlock Equip Menu") }}</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ======== OTHER ======== -->
+<section id="section-other" class="section">
+  <h2 class="section-title">{{ t("Other") }}</h2>
+  <div class="card">
+    <div class="card-row">
+      <form action="{{ url_for('edit_other') }}" method="post" class="inline-form">
+        <input type="hidden" name="other_action" value="reset_gambling">
+        <button type="submit" class="btn">{{ t("Reset Gambling Events") }}</button>
+      </form>
+      <form action="{{ url_for('edit_other') }}" method="post" class="inline-form">
+        <input type="hidden" name="other_action" value="restart_pack">
+        <button type="submit" class="btn">{{ t("Set Restart Pack") }}</button>
+      </form>
+      <form action="{{ url_for('edit_other') }}" method="post" class="inline-form">
+        <input type="hidden" name="other_action" value="enemy_guide">
+        <button type="submit" class="btn">{{ t("Edit Enemy Guide") }}</button>
+      </form>
+      <form action="{{ url_for('edit_other') }}" method="post" class="inline-form">
+        <input type="hidden" name="other_action" value="user_rank_rewards">
+        <button type="submit" class="btn">{{ t("Edit User Rank Rewards") }}</button>
+      </form>
+      <form action="{{ url_for('edit_other') }}" method="post" class="inline-form">
+        <input type="hidden" name="other_action" value="gold_pass">
+        <button type="submit" class="btn">{{ t("Edit Gold Pass") }}</button>
+      </form>
+      <form action="{{ url_for('edit_other') }}" method="post" class="inline-form">
+        <input type="hidden" name="other_action" value="medals">
+        <button type="submit" class="btn">{{ t("Edit Medals") }}</button>
+      </form>
+      <form action="{{ url_for('edit_other') }}" method="post" class="inline-form">
+        <input type="hidden" name="other_action" value="missions">
+        <button type="submit" class="btn">{{ t("Edit Missions") }}</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">{{ t("Playtime") }}</h3>
+    <form action="{{ url_for('edit_other') }}" method="post" class="form-inline">
+      <input type="hidden" name="other_action" value="playtime">
+      <div class="input-row-group">
+        <input type="number" name="hours" class="input" placeholder="Hours" min="0" value="0">
+        <input type="number" name="minutes" class="input" placeholder="Min" min="0" max="59" value="0">
+        <input type="number" name="seconds" class="input" placeholder="Sec" min="0" max="59" value="0">
+        <button type="submit" class="btn">{{ t("Set") }}</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- ======== SEEDS ======== -->
+<section id="section-seeds" class="section">
+  <h2 class="section-title">{{ t("Gacha Seeds") }}</h2>
+  <div class="card">
+    <div class="grid-2col">
+      <form action="{{ url_for('edit_seed') }}" method="post" class="inline-form">
+        <input type="hidden" name="seed_field" value="rare_gatya_seed">
+        <label class="field-label">{{ t("Rare Gatya Seed") }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="0" min="0">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+      <form action="{{ url_for('edit_seed') }}" method="post" class="inline-form">
+        <input type="hidden" name="seed_field" value="normal_gatya_seed">
+        <label class="field-label">{{ t("Normal Gatya Seed") }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="0" min="0">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+      <form action="{{ url_for('edit_seed') }}" method="post" class="inline-form">
+        <input type="hidden" name="seed_field" value="event_gatya_seed">
+        <label class="field-label">{{ t("Event Gatya Seed") }}</label>
+        <div class="input-row">
+          <input type="number" name="value" class="input" value="0" min="0">
+          <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ======== CONFIG ======== -->
+<section id="section-config" class="section">
+  <h2 class="section-title">{{ t("Configuration") }}</h2>
+  <div class="card">
+    <form action="{{ url_for('edit_config') }}" method="post">
+      {% for key, (desc, kind) in config_keys %}
+      <div class="config-row">
+        <label class="field-label" for="config-{{ key.value }}">{{ desc }}</label>
+        {% if kind == "boolean" %}
+        <select name="{{ key.value }}" id="config-{{ key.value }}" class="input input-sm">
+          <option value="true" {% if config_values.get(key.value) == True %}selected{% endif %}>{{ t("Enabled") }}</option>
+          <option value="false" {% if config_values.get(key.value) == False %}selected{% endif %}>{{ t("Disabled") }}</option>
+        </select>
+        {% elif kind == "int" %}
+        <input type="number" name="{{ key.value }}" id="config-{{ key.value }}" class="input input-sm" value="{{ config_values.get(key.value) or 0 }}">
+        {% elif key.value == "locale" %}
+        <select name="locale" id="config-locale" class="input input-sm">
+          <option value="en" {% if config_values.get('locale') == 'en' %}selected{% endif %}>en</option>
+          <option value="tw" {% if config_values.get('locale') == 'tw' %}selected{% endif %}>tw</option>
+          <option value="vi" {% if config_values.get('locale') == 'vi' %}selected{% endif %}>vi</option>
+        </select>
+        {% else %}
+        <input type="text" name="{{ key.value }}" id="config-{{ key.value }}" class="input input-sm" value="{{ config_values.get(key.value) or '' }}">
+        {% endif %}
+      </div>
+      {% endfor %}
+      <div class="mt-1">
+        <button type="submit" class="btn btn-primary">{{ t("Save Config") }}</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+{% endblock %}
