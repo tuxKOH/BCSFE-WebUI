@@ -8,7 +8,6 @@ import requests
 
 class ConfigKey(enum.Enum):
     UPDATE_TO_BETA = "update_to_beta"
-    SHOW_UPDATE_MESSAGE = "show_update_message"
     LOCALE = "locale"
     SHOW_MISSING_LOCALE_KEYS = "show_missing_locale_keys"
     DISABLE_MAXES = "disable_maxes"
@@ -62,7 +61,6 @@ class Config:
     def get_defaults() -> dict[ConfigKey, Any]:
         initial_values = {
             ConfigKey.UPDATE_TO_BETA: False,
-            ConfigKey.SHOW_UPDATE_MESSAGE: True,
             ConfigKey.LOCALE: "en",
             ConfigKey.SHOW_MISSING_LOCALE_KEYS: False,
             ConfigKey.DISABLE_MAXES: False,
@@ -329,14 +327,13 @@ class Config:
             return None
 
         lang_name = dialog_creator.str_input_key("enter_language_name_true")
-        lang_name_eng = dialog_creator.str_input_key("enter_language_eng")
 
-        if lang_name is None or lang_name_eng is None:
+        if lang_name is None:
             return None
 
         metadata = {
             "authors": [author],
-            "name": f"{lang_name} ({lang_name_eng})",
+            "name": f"{lang_name}",
         }
 
         path = core.LocalManager.get_locale_folder(code)
