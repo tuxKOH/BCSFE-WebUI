@@ -96,9 +96,103 @@ def max_cat_shrine(sf: core.SaveFile):
     sf.cat_shrine.xp_offering = mx
 
 def max_scheme_items(sf: core.SaveFile):
-    """Max out all scheme items."""
-    for i in range(len(sf.scheme_items.items)):
-        sf.scheme_items.items[i] = 9999
+    """Mark every known scheme item as obtainable."""
+    known_ids = set(sf.scheme_items.to_obtain) | set(sf.scheme_items.received)
+    sf.scheme_items.to_obtain = sorted(known_ids)
+    sf.scheme_items.received = []
+
+
+def edit_scheme_item(sf: core.SaveFile, scheme_id: int, obtained: bool) -> None:
+    if scheme_id < 0:
+        raise ValueError("scheme id must be non-negative")
+    if obtained:
+        if scheme_id not in sf.scheme_items.to_obtain:
+            sf.scheme_items.to_obtain.append(scheme_id)
+        if scheme_id in sf.scheme_items.received:
+            sf.scheme_items.received.remove(scheme_id)
+    else:
+        if scheme_id in sf.scheme_items.to_obtain:
+            sf.scheme_items.to_obtain.remove(scheme_id)
+        if scheme_id in sf.scheme_items.received:
+            sf.scheme_items.received.remove(scheme_id)
+
+
+def max_cat_talents(sf: core.SaveFile) -> int:
+    """Max every available talent without invoking CLI prompts."""
+    from bcsfe.cli.edits.cat_editor import CatEditor
+
+    editor = CatEditor(sf)
+    cats = [cat for cat in sf.cats.cats if cat.unlocked and cat.talents is not None]
+    editor.edit_talent_many(cats)
+    return len(cats)
+
+
+def max_special_skills(sf: core.SaveFile) -> int:
+    """Max all special skills using the same game-data limits as the CLI."""
+    ability_data = core.core_data.get_ability_data(sf)
+    if ability_data.ability_data is None:
+        return 0
+    skills = sf.special_skills.get_valid_skills()
+    count = min(len(skills), len(ability_data.ability_data))
+    for skill_id in range(count):
+        ability = ability_data.ability_data[skill_id]
+        sf.special_skills.set_upgrade(
+            skill_id,
+            core.Upgrade(ability.max_base_level - 1, ability.max_plus_level),
+            max_base=ability.max_base_level - 1,
+            max_plus=ability.max_plus_level,
+        )
+        skills[skill_id].seen = 1
+    return count
+
+
+def trade_rare_tickets(sf: core.SaveFile, amount: int) -> None:
+    """Apply the CLI rare-ticket trade with an explicit web value."""
+    maximum = max(core.core_data.max_value_manager.rare_tickets - sf.rare_tickets, 0)
+    if amount < 0 or amount > maximum:
+        raise ValueError(f"amount must be between 0 and {maximum}")
+    slot = next(
+        (
+            item
+            for item in sf.cats.storage_items
+            if item.item_type == 0 or (item.item_type == 2 and item.item_id == 1)
+        ),
+        None,
+    )
+    if slot is None:
+        raise ValueError("cat storage is full")
+    slot.item_type = 2
+    slot.item_id = 1
+    sf.gatya.trade_progress = amount * 5
+
+
+def edit_storage(sf: core.SaveFile, action: str, item_type: int = 0,
+                 item_id: int = 0, quantity: int = 1, slot_index: int = -1) -> int:
+    """Web-safe cat-storage operations matching the CLI storage editor."""
+    from bcsfe.cli.edits import storage
+
+    slots = sf.cats.storage_items
+    if action == "clear":
+        storage.clear_storage(slots)
+        return len(slots)
+    if action == "remove":
+        if slot_index < 0 or slot_index >= len(slots):
+            raise ValueError("invalid storage slot")
+        slots[slot_index].item_type = 0
+        slots[slot_index].item_id = 0
+        return 1
+    if action != "add" or item_type not in (1, 2, 3) or quantity < 1:
+        raise ValueError("invalid storage operation")
+    added = 0
+    for _ in range(quantity):
+        item = core.StorageItem(item_id)
+        item.item_type = item_type
+        if not storage.add_item(slots, item):
+            break
+        added += 1
+    if added != quantity:
+        raise ValueError(f"storage only had room for {added} item(s)")
+    return added
 
 
 # ---------------------------------------------------------------------------
@@ -230,7 +324,15 @@ def max_dojo_score(sf: core.SaveFile):
 # ---------------------------------------------------------------------------
 
 def set_playtime(sf: core.SaveFile, h: int, m: int, s: int):
-    PlayTime.edit(sf, h, m, s)
+    if h < 0 or m < 0 or s < 0 or m > 59 or s > 59:
+        raise ValueError("invalid playtime")
+    sf.officer_pass.play_time = PlayTime.from_hours_mins_secs(h, m, s).frames
+
+
+def unlock_equip_menu(sf: core.SaveFile):
+    while len(sf.menu_unlocks) <= 2:
+        sf.menu_unlocks.append(0)
+    sf.menu_unlocks[2] = max(sf.menu_unlocks[2], 1)
 
 def max_enemy_guide(sf: core.SaveFile):
     """Unlock all enemies in enemy guide."""
@@ -241,8 +343,15 @@ def max_enemy_guide(sf: core.SaveFile):
         pass
 
 def max_user_rank_rewards(sf: core.SaveFile):
-    from bcsfe.core.game.catbase.user_rank_rewards import UserRankRewards
-    UserRankRewards.edit_user_rank_rewards(sf)
+    for reward in sf.user_rank_rewards.rewards:
+        reward.claimed = True
+
+
+def max_itf_timed_scores(sf: core.SaveFile):
+    """Max timed scores for Into the Future chapters without CLI dialogs."""
+    for chapter in sf.story.chapters[3:6]:
+        for stage in chapter.stages:
+            stage.itf_timed_score = 999999
 
 def max_gold_pass(sf: core.SaveFile):
     sf.gold_pass = True

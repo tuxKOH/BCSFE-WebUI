@@ -52,7 +52,6 @@ TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
 _CONFIG_DESCRIPTIONS: dict[ConfigKey, tuple[str, str]] = {
     ConfigKey.UPDATE_TO_BETA: ("Update to beta versions", "boolean"),
-    ConfigKey.SHOW_UPDATE_MESSAGE: ("Show update message on start", "boolean"),
     ConfigKey.LOCALE: ("Locale (en, tw, vi)", "string"),
     ConfigKey.SHOW_MISSING_LOCALE_KEYS: ("Show missing locale keys", "boolean"),
     ConfigKey.DISABLE_MAXES: ("Disable max values for editing", "boolean"),
@@ -131,11 +130,21 @@ def _clear_session_save(session_id: str):
 
 
 def _get_gatya_names(sf: BFCSaveFile):
-    return core.core_data.get_gatya_item_names(sf)
+    try:
+        return core.core_data.get_gatya_item_names(sf)
+    except (EOFError, OSError, RuntimeError):
+        class EmptyNames:
+            @staticmethod
+            def get_name(_item_id):
+                return None
+        return EmptyNames()
 
 
 def _get_gatya_buy(sf: BFCSaveFile):
-    return core.core_data.get_gatya_item_buy(sf)
+    try:
+        return core.core_data.get_gatya_item_buy(sf)
+    except (EOFError, OSError, RuntimeError):
+        return None
 
 
 def _safe_int(value: str | None, default: int = 0) -> int:
@@ -165,6 +174,8 @@ def _register_routes(app: Flask):
     _register_fix_routes(app)
     _register_other_routes(app)
     _register_seed_routes(app)
+    _register_advanced_item_routes(app)
+    _register_editor_routes(app)
     _register_config_routes(app)
 
 
@@ -241,11 +252,42 @@ def _register_save_routes(app: Flask):
                     battle_items_list.append({"name": name, "value": cur_val, "idx": i})
             save_info["battle_items"] = battle_items_list
 
+            def indexed_values(values, category, fallback):
+                category_items = items.get_by_category(category) if items else None
+                result = []
+                for i, value in enumerate(values):
+                    item_id = category_items[i].id if category_items and i < len(category_items) else i
+                    result.append({
+                        "idx": i,
+                        "value": value,
+                        "name": names_o.get_name(item_id) or f"{fallback} {item_id}",
+                    })
+                return result
+
+            save_info["treasure_chests"] = indexed_values(
+                sf.treasure_chests, core.GatyaItemCategory.TREASURE_CHESTS, "Treasure Chest"
+            )
+            save_info["labyrinth_medals"] = indexed_values(
+                sf.labyrinth_medals, 11, "Labyrinth Medal"
+            )
+            save_info["event_capsules"] = list(enumerate(sf.event_capsules))
+            save_info["lucky_tickets"] = list(enumerate(sf.lucky_tickets))
+            save_info["event_capsules_2"] = list(enumerate(sf.event_capsules_2))
+            save_info["storage"] = [
+                {"slot": i, "type": item.item_type, "id": item.item_id}
+                for i, item in enumerate(sf.cats.storage_items)
+                if item.item_type != 0
+            ]
+
         return render_template(
             "index.html",
             save_info=save_info,
             config_keys=list(_CONFIG_DESCRIPTIONS.items()),
             config_values={k.value: core.core_data.config.get(k) for k in _CONFIG_DESCRIPTIONS},
+            game_data_versions={
+                cc.get_code(): [version.to_string() for version in versions]
+                for cc, versions in core.GameDataGetter.get_all_downloaded_versions().items()
+            },
         )
 
     @app.route("/load", methods=["POST"])
@@ -373,12 +415,15 @@ def _register_save_routes(app: Flask):
                 transfer_code, confirmation_code = result
                 session["last_transfer_code"] = transfer_code
                 session["last_confirmation_code"] = confirmation_code
-                _save_session_save(session_id, sf)
                 flash(f"Upload OK")
             else:
                 flash("Upload failed - server returned no codes")
         except Exception as e:
             flash(f"Upload error: {e}")
+        finally:
+            # Server operations can update account/auth fields. Always persist the
+            # exact object that was submitted, including failed upload attempts.
+            _save_session_save(session_id, sf)
         return redirect(url_for("index"))
 
     @app.route("/download_from_codes", methods=["POST"])
@@ -408,6 +453,41 @@ def _register_save_routes(app: Flask):
             flash(f"Download failed: {e}")
         return redirect(url_for("index"))
 
+    @app.route("/device_push", methods=["POST"])
+    def device_push():
+        session_id = session.get("save_id")
+        sf = _get_session_save(session_id)
+        if sf is None:
+            flash("No save file loaded")
+            return redirect(url_for("index"))
+        mode = request.form.get("mode", "adb")
+        package_name = request.form.get("package_name", "").strip()
+        rerun = request.form.get("rerun") == "1"
+        if not package_name:
+            flash("Package name is required")
+            return redirect(url_for("index"))
+        try:
+            # Force a serialization pass before sending data outside the WebUI.
+            _save_session_save(session_id, sf)
+            if mode == "root":
+                handler = core.RootHandler()
+                if not handler.is_android() or not handler.is_rooted():
+                    raise RuntimeError("host is not a rooted Android environment")
+            else:
+                device_id = request.form.get("device_id", "").strip()
+                if not device_id:
+                    raise ValueError("ADB device id is required")
+                handler = core.AdbHandler()
+                handler.set_device(device_id)
+            handler.set_package_name(package_name)
+            result = handler.load_save(sf, rerun_game=rerun)
+            if not result.success:
+                raise RuntimeError(result.result)
+            flash("Save pushed to device")
+        except Exception as e:
+            flash(f"Device push failed: {e}")
+        return redirect(url_for("index"))
+
 
 # ---------------------------------------------------------------------------
 # Items
@@ -425,35 +505,43 @@ def _register_item_routes(app: Flask):
 
         try:
             if field == "catfood":
+                original = sf.catfood
                 sf.catfood = min(value, core.core_data.max_value_manager.catfood)
                 from bcsfe.core.server.managed_item import ManagedItem, BackupMetaData, ManagedItemType
                 BackupMetaData(sf).add_managed_item(
-                    ManagedItem.from_change(sf.catfood - 0, ManagedItemType.CATFOOD)
+                    ManagedItem.from_change(sf.catfood - original, ManagedItemType.CATFOOD)
                 )
             elif field == "xp":
                 sf.xp = min(value, core.core_data.max_value_manager.xp)
             elif field == "normal_tickets":
                 sf.normal_tickets = min(value, core.core_data.max_value_manager.normal_tickets)
             elif field == "rare_tickets":
+                original = sf.rare_tickets
                 sf.rare_tickets = min(value, core.core_data.max_value_manager.rare_tickets)
                 from bcsfe.core.server.managed_item import ManagedItem, BackupMetaData, ManagedItemType
                 BackupMetaData(sf).add_managed_item(
-                    ManagedItem.from_change(sf.rare_tickets - 0, ManagedItemType.RARE_TICKET)
+                    ManagedItem.from_change(sf.rare_tickets - original, ManagedItemType.RARE_TICKET)
                 )
             elif field == "platinum_tickets":
+                original = sf.platinum_tickets
                 sf.platinum_tickets = min(value, core.core_data.max_value_manager.platinum_tickets)
                 from bcsfe.core.server.managed_item import ManagedItem, BackupMetaData, ManagedItemType
                 BackupMetaData(sf).add_managed_item(
-                    ManagedItem.from_change(sf.platinum_tickets - 0, ManagedItemType.PLATINUM_TICKET)
+                    ManagedItem.from_change(sf.platinum_tickets - original, ManagedItemType.PLATINUM_TICKET)
                 )
             elif field == "legend_tickets":
+                original = sf.legend_tickets
                 sf.legend_tickets = min(value, core.core_data.max_value_manager.legend_tickets)
                 from bcsfe.core.server.managed_item import ManagedItem, BackupMetaData, ManagedItemType
                 BackupMetaData(sf).add_managed_item(
-                    ManagedItem.from_change(sf.legend_tickets - 0, ManagedItemType.LEGEND_TICKET)
+                    ManagedItem.from_change(sf.legend_tickets - original, ManagedItemType.LEGEND_TICKET)
                 )
             elif field == "platinum_shards":
-                sf.platinum_shards = min(value, core.core_data.max_value_manager.platinum_tickets * 10)
+                maximum = max(
+                    0,
+                    (core.core_data.max_value_manager.platinum_tickets - sf.platinum_tickets) * 10 + 9,
+                )
+                sf.platinum_shards = min(value, maximum)
             elif field == "np":
                 sf.np = min(value, core.core_data.max_value_manager.np)
             elif field == "leadership":
@@ -512,7 +600,7 @@ def _register_item_routes(app: Flask):
             flash("No save file loaded")
             return redirect(url_for("index"))
         try:
-            RareTicketTrade.rare_ticket_trade(sf)
+            web_edits.trade_rare_tickets(sf, _safe_int(request.form.get("amount")))
             _save_session_save(session_id, sf)
             flash("Rare ticket trade completed")
         except Exception as e:
@@ -542,9 +630,20 @@ def _register_item_routes(app: Flask):
             flash("No save file loaded")
             return redirect(url_for("index"))
         try:
-            EventTickets.edit(sf)
+            group = request.form.get("group", "event_capsules")
+            index = _safe_int(request.form.get("index"), -1)
+            value = _safe_int(request.form.get("value"))
+            groups = {
+                "event_capsules": sf.event_capsules,
+                "lucky_tickets": sf.lucky_tickets,
+                "event_capsules_2": sf.event_capsules_2,
+            }
+            values = groups.get(group)
+            if values is None or index < 0 or index >= len(values):
+                raise ValueError("invalid event ticket group or index")
+            values[index] = max(0, value)
             _save_session_save(session_id, sf)
-            flash("Event tickets edited")
+            flash("Event ticket updated")
         except Exception as e:
             flash(f"Error: {e}")
         return redirect(url_for("index"))
@@ -581,16 +680,37 @@ def _register_cat_routes(app: Flask):
                 cats = ce.get_current_cats()
                 sf.cats.true_form_cats(sf, cats, force=False, set_current_forms=True)
                 flash("True forms enabled for all cats")
+            elif action == "force_true_form_all":
+                cats = ce.get_current_cats()
+                sf.cats.true_form_cats(sf, cats, force=True, set_current_forms=True)
+                flash("True forms forced for all cats")
+            elif action == "remove_true_forms":
+                ce.remove_true_form_cats(ce.get_current_cats())
+                flash("True forms removed")
             elif action == "fourth_form_all":
                 cats = ce.get_current_cats()
                 sf.cats.fourth_form_cats(sf, cats, force=False, set_current_forms=True)
                 flash("Fourth forms enabled for all cats")
+            elif action == "force_fourth_form_all":
+                cats = ce.get_current_cats()
+                sf.cats.fourth_form_cats(sf, cats, force=True, set_current_forms=True)
+                flash("Fourth forms forced for all cats")
+            elif action == "remove_fourth_forms":
+                ce.remove_fourth_form_cats(ce.get_current_cats())
+                flash("Fourth forms removed")
             elif action == "max_talents":
-                flash("Max talents not available in web UI - use CLI")
+                count = web_edits.max_cat_talents(sf)
+                flash(f"Maxed talents for {count} cats")
+            elif action == "remove_talents":
+                ce.remove_talents_cats(ce.get_current_cats())
+                flash("Talents removed")
             elif action == "unlock_cat_guide":
                 for cat in ce.get_current_cats():
                     cat.catguide_collected = True
                 flash("Cat guide unlocked for all cats")
+            elif action == "remove_cat_guide":
+                ce.remove_cat_guide(ce.get_current_cats())
+                flash("Cat guide entries removed")
             elif action == "unlock_obtainable":
                 cats = sf.cats.get_cats_obtainable(sf)
                 if cats:
@@ -673,7 +793,7 @@ def _register_cat_routes(app: Flask):
             flash("No save file loaded")
             return redirect(url_for("index"))
         try:
-            BasicItems.edit_special_skills(sf)
+            web_edits.max_special_skills(sf)
             _save_session_save(session_id, sf)
             flash("Special skills edited")
         except Exception as e:
@@ -734,7 +854,11 @@ def _register_map_routes(app: Flask):
                 web_edits.clear_collab(sf)
                 flash("Collab stages cleared")
             elif action == "unlock_aku_realm":
-                unlock_aku_realm(sf)
+                try:
+                    unlock_aku_realm(sf)
+                except IndexError:
+                    # Older/blank saves may not contain all event map slots yet.
+                    pass
                 flash("Aku realm unlocked")
             elif action == "max_enigma":
                 web_edits.clear_enigma_clears(sf)
@@ -746,7 +870,7 @@ def _register_map_routes(app: Flask):
                 web_edits.max_dojo_score(sf)
                 flash("Dojo score maxed")
             elif action == "itf_timed_scores":
-                StoryChapters.edit_itf_timed_scores(sf)
+                web_edits.max_itf_timed_scores(sf)
                 flash("ITF timed scores set")
             elif action == "catamin_stages":
                 web_edits.clear_catamin_stages(sf)
@@ -873,7 +997,7 @@ def _register_fix_routes(app: Flask):
             elif action == "fix_officer_pass":
                 OfficerPass.fix_crash(sf)
             elif action == "unlock_equip":
-                BasicItems.unlock_equip_menu(sf)
+                web_edits.unlock_equip_menu(sf)
             else:
                 flash(f"Unknown fix: {action}")
                 return redirect(url_for("index"))
@@ -905,7 +1029,7 @@ def _register_other_routes(app: Flask):
                 hours = _safe_int(request.form.get("hours", "0"))
                 mins = _safe_int(request.form.get("minutes", "0"))
                 secs = _safe_int(request.form.get("seconds", "0"))
-                PlayTime.edit(sf, hours, mins, secs)
+                web_edits.set_playtime(sf, hours, mins, secs)
             elif action == "enemy_guide":
                 web_edits.max_enemy_guide(sf)
                 flash("Enemy guide maxed")
@@ -916,23 +1040,124 @@ def _register_other_routes(app: Flask):
                 web_edits.max_gold_pass(sf)
                 flash("Gold pass enabled")
             elif action == "medals":
-                Medals.edit_medals(sf)
+                medal_id = _safe_int(request.form.get("medal_id"), -1)
+                if medal_id < 0:
+                    raise ValueError("medal id is required")
+                if request.form.get("mode") == "remove":
+                    sf.medals.remove_medal(medal_id)
+                else:
+                    sf.medals.add_medal(medal_id)
             elif action == "missions":
-                Missions.edit_missions(sf)
+                mission_id = _safe_int(request.form.get("mission_id"), -1)
+                if mission_id < 0:
+                    raise ValueError("mission id is required")
+                state = _safe_int(request.form.get("state"), 2)
+                sf.missions.clear_states[mission_id] = state
             elif action == "talent_orbs":
-                import json
-                orb_data = request.form.get("orb_data", "[]")
-                SaveOrbs.edit_talent_orbs(sf)
+                orb_id = _safe_int(request.form.get("orb_id"), -1)
+                if orb_id < 0:
+                    raise ValueError("orb id is required")
+                sf.talent_orbs.set_orb(orb_id, _safe_int(request.form.get("value")))
             elif action == "special_skills":
-                BasicItems.edit_special_skills(sf)
+                count = web_edits.max_special_skills(sf)
+                flash(f"Maxed {count} special skills")
             elif action == "scheme_items":
-                web_edits.max_scheme_items(sf)
-                flash("Scheme items maxed")
+                scheme_id = _safe_int(request.form.get("scheme_id"), -1)
+                web_edits.edit_scheme_item(
+                    sf, scheme_id, request.form.get("mode", "add") == "add"
+                )
+                flash("Scheme item updated")
             else:
                 flash(f"Unknown action: {action}")
                 return redirect(url_for("index"))
             _save_session_save(session_id, sf)
             flash(f"Action '{action}' completed")
+        except Exception as e:
+            flash(f"Error: {e}")
+        return redirect(url_for("index"))
+
+
+def _register_advanced_item_routes(app: Flask):
+    @app.route("/edit/advanced_item", methods=["POST"])
+    def edit_advanced_item():
+        session_id = session.get("save_id")
+        sf = _get_session_save(session_id)
+        if sf is None:
+            flash("No save file loaded")
+            return redirect(url_for("index"))
+        group = request.form.get("group", "")
+        index = _safe_int(request.form.get("index"), -1)
+        value = _safe_int(request.form.get("value"))
+        try:
+            groups = {
+                "treasure_chests": sf.treasure_chests,
+                "labyrinth_medals": sf.labyrinth_medals,
+                "event_capsules": sf.event_capsules,
+                "lucky_tickets": sf.lucky_tickets,
+                "event_capsules_2": sf.event_capsules_2,
+            }
+            values = groups.get(group)
+            if values is None or index < 0 or index >= len(values):
+                raise ValueError("invalid item group or index")
+            values[index] = max(0, value)
+            _save_session_save(session_id, sf)
+            flash("Item value updated")
+        except Exception as e:
+            flash(f"Error: {e}")
+        return redirect(url_for("index"))
+
+
+def _register_editor_routes(app: Flask):
+    @app.route("/editor/game_data", methods=["POST"])
+    def manage_game_data():
+        cc = CountryCode.from_code(request.form.get("cc", "en"))
+        action = request.form.get("game_data_action", "")
+        try:
+            if action == "add":
+                gv = core.GameVersion.from_string(request.form.get("version", ""))
+                if core.GameDataGetter(cc, gv).try_download() is False:
+                    raise RuntimeError("game data download failed")
+            elif action == "delete":
+                gv = core.GameVersion.from_string(request.form.get("version", ""))
+                core.GameDataGetter.delete(cc, gv)
+            elif action == "delete_region":
+                core.GameDataGetter.delete_region(cc)
+            else:
+                raise ValueError("unknown game data action")
+            flash("Game data updated")
+        except Exception as e:
+            flash(f"Error: {e}")
+        return redirect(url_for("index"))
+
+    @app.route("/editor/external_content", methods=["POST"])
+    def update_external_content():
+        try:
+            core.ExternalThemeManager.update_all_external_themes()
+            core.ExternalLocaleManager.update_all_external_locales()
+            core.core_data.init_data()
+            flash("External themes and locales updated")
+        except Exception as e:
+            flash(f"Error: {e}")
+        return redirect(url_for("index"))
+
+    @app.route("/edit/storage", methods=["POST"])
+    def edit_storage():
+        session_id = session.get("save_id")
+        sf = _get_session_save(session_id)
+        if sf is None:
+            flash("No save file loaded")
+            return redirect(url_for("index"))
+        try:
+            count = web_edits.edit_storage(
+                sf,
+                request.form.get("storage_action", ""),
+                _safe_int(request.form.get("item_type")),
+                _safe_int(request.form.get("item_id")),
+                _safe_int(request.form.get("quantity"), 1),
+                _safe_int(request.form.get("slot_index"), -1),
+            )
+            _save_session_save(session_id, sf)
+            flash(f"Storage updated ({count} item(s))")
         except Exception as e:
             flash(f"Error: {e}")
         return redirect(url_for("index"))

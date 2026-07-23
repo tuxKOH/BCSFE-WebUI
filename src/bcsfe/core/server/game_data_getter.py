@@ -6,6 +6,7 @@ from bcsfe.cli import color, dialog_creator
 
 import tarfile
 import json
+import sys
 
 from bcsfe import core
 
@@ -100,6 +101,7 @@ class GameDataGetter:
                 GameDataGetter.repo_url()
                 == core.core_data.config.get_default(core.ConfigKey.GAME_DATA_REPO)
                 and show_alt
+                and sys.stdin.isatty()
             ):
                 alt = "https://gitlab.com/fieryhenry/bcdata/-/raw/main/metadata.json"
                 res = dialog_creator.yes_no_key("use_alternative_repo", repo=alt)

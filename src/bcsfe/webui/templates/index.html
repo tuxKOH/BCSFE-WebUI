@@ -68,6 +68,17 @@
       <button type="submit" class="btn">{{ t("Convert") }}</button>
     </form>
   </div>
+
+  <div class="card">
+    <h3 class="card-title">{{ t("Push to Device") }}</h3>
+    <form action="{{ url_for('device_push') }}" method="post" class="form-inline">
+      <select name="mode" class="input input-sm"><option value="adb">ADB / Waydroid</option><option value="root">Rooted Android host</option></select>
+      <input type="text" name="device_id" class="input" placeholder="ADB device ID">
+      <input type="text" name="package_name" class="input" placeholder="jp.co.ponos.battlecatsen" required>
+      <label class="field-label"><input type="checkbox" name="rerun" value="1"> {{ t("Rerun game") }}</label>
+      <button class="btn">{{ t("Push Save") }}</button>
+    </form>
+  </div>
 </section>
 
 <!-- ======== ITEMS ======== -->
@@ -150,6 +161,7 @@
     </div>
     <div class="mt-1">
       <form action="{{ url_for('rare_ticket_trade') }}" method="post" class="inline-form">
+        <input type="number" name="amount" class="input input-sm" value="1" min="0" required>
         <button type="submit" class="btn">{{ t("Rare Ticket NP Trade") }}</button>
       </form>
     </div>
@@ -266,13 +278,44 @@
     <div class="card-row">
       <form action="{{ url_for('edit_other') }}" method="post" class="inline-form">
         <input type="hidden" name="other_action" value="scheme_items">
+        <input type="number" name="scheme_id" class="input input-sm" min="0" placeholder="Scheme ID" required>
+        <select name="mode" class="input input-sm"><option value="add">Add</option><option value="remove">Remove</option></select>
         <button type="submit" class="btn">{{ t("Edit Scheme Items") }}</button>
       </form>
 
-      <form action="{{ url_for('edit_event_tickets') }}" method="post" class="inline-form">
-        <button type="submit" class="btn">{{ t("Edit Event Tickets") }}</button>
-      </form>
     </div>
+    {% for title, group, values in [
+      ('Treasure Chests', 'treasure_chests', save_info.treasure_chests),
+      ('Labyrinth Medals', 'labyrinth_medals', save_info.labyrinth_medals)
+    ] %}
+      <h4 class="field-label mt-1">{{ t(title) }}</h4>
+      <div class="grid-2col">
+      {% for item in values %}
+        <form action="{{ url_for('edit_advanced_item') }}" method="post" class="inline-form">
+          <input type="hidden" name="group" value="{{ group }}">
+          <input type="hidden" name="index" value="{{ item.idx }}">
+          <label class="field-label">{{ item.name }}</label>
+          <div class="input-row"><input type="number" name="value" class="input" min="0" value="{{ item.value }}"><button class="btn btn-sm">{{ t("Set") }}</button></div>
+        </form>
+      {% endfor %}
+      </div>
+    {% endfor %}
+    {% for title, group, values in [
+      ('Event Capsules', 'event_capsules', save_info.event_capsules),
+      ('Lucky Tickets', 'lucky_tickets', save_info.lucky_tickets),
+      ('Lucky Tickets 2', 'event_capsules_2', save_info.event_capsules_2)
+    ] %}
+      <h4 class="field-label mt-1">{{ t(title) }}</h4>
+      <div class="grid-2col">
+      {% for idx, value in values %}
+        <form action="{{ url_for('edit_advanced_item') }}" method="post" class="inline-form">
+          <input type="hidden" name="group" value="{{ group }}"><input type="hidden" name="index" value="{{ idx }}">
+          <label class="field-label">ID {{ idx }}</label>
+          <div class="input-row"><input type="number" name="value" class="input" min="0" value="{{ value }}"><button class="btn btn-sm">{{ t("Set") }}</button></div>
+        </form>
+      {% endfor %}
+      </div>
+    {% endfor %}
   </div>
 </section>
 
@@ -290,18 +333,24 @@
         <input type="hidden" name="cat_action" value="true_form_all">
         <button type="submit" class="btn">{{ t("True Form All") }}</button>
       </form>
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form"><input type="hidden" name="cat_action" value="force_true_form_all"><button type="submit" class="btn">{{ t("Force True Form All") }}</button></form>
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form"><input type="hidden" name="cat_action" value="remove_true_forms"><button type="submit" class="btn">{{ t("Remove True Forms") }}</button></form>
       <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form">
         <input type="hidden" name="cat_action" value="fourth_form_all">
         <button type="submit" class="btn">{{ t("Fourth Form All") }}</button>
       </form>
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form"><input type="hidden" name="cat_action" value="force_fourth_form_all"><button type="submit" class="btn">{{ t("Force Fourth Form All") }}</button></form>
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form"><input type="hidden" name="cat_action" value="remove_fourth_forms"><button type="submit" class="btn">{{ t("Remove Fourth Forms") }}</button></form>
       <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form">
         <input type="hidden" name="cat_action" value="max_talents">
         <button type="submit" class="btn">{{ t("Max Talents All") }}</button>
       </form>
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form"><input type="hidden" name="cat_action" value="remove_talents"><button type="submit" class="btn">{{ t("Remove Talents") }}</button></form>
       <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form">
         <input type="hidden" name="cat_action" value="unlock_cat_guide">
         <button type="submit" class="btn">{{ t("Unlock Cat Guide") }}</button>
       </form>
+      <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form"><input type="hidden" name="cat_action" value="remove_cat_guide"><button type="submit" class="btn">{{ t("Remove Cat Guide") }}</button></form>
     </div>
     <div class="card-row" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #fecaca;">
       <form action="{{ url_for('edit_cats') }}" method="post" class="inline-form">
@@ -375,6 +424,24 @@
           <input type="number" name="value" class="input" value="0" min="0">
           <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
         </div>
+      </form>
+    </div>
+    <form action="{{ url_for('edit_storage') }}" method="post" class="form-inline mt-1">
+      <input type="hidden" name="storage_action" value="add">
+      <select name="item_type" class="input input-sm"><option value="1">Cat</option><option value="2">Special Skill</option><option value="3">Item</option></select>
+      <input type="number" name="item_id" class="input input-sm" min="0" placeholder="Item ID" required>
+      <input type="number" name="quantity" class="input input-sm" min="1" value="1">
+      <button class="btn btn-sm">{{ t("Add") }}</button>
+    </form>
+    <div class="card-row mt-1">
+      {% for item in save_info.storage %}
+      <form action="{{ url_for('edit_storage') }}" method="post" class="inline-form">
+        <input type="hidden" name="storage_action" value="remove"><input type="hidden" name="slot_index" value="{{ item.slot }}">
+        <button class="btn btn-sm">Remove slot {{ item.slot }} (type {{ item.type }}, ID {{ item.id }})</button>
+      </form>
+      {% endfor %}
+      <form action="{{ url_for('edit_storage') }}" method="post" class="inline-form">
+        <input type="hidden" name="storage_action" value="clear"><button class="btn btn-sm" style="color:#dc2626">{{ t("Clear Storage") }}</button>
       </form>
     </div>
   </div>
@@ -556,6 +623,11 @@
           <button type="submit" class="btn btn-sm">{{ t("Set") }}</button>
         </div>
       </form>
+      <form action="{{ url_for('edit_account') }}" method="post" class="inline-form">
+        <input type="hidden" name="account_action" value="password_refresh_token">
+        <label class="field-label">{{ t("Password Refresh Token") }}</label>
+        <div class="input-row"><input type="text" name="value" class="input" required><button type="submit" class="btn btn-sm">{{ t("Set") }}</button></div>
+      </form>
     </div>
   </div>
 </section>
@@ -614,13 +686,21 @@
         <input type="hidden" name="other_action" value="gold_pass">
         <button type="submit" class="btn">{{ t("Edit Gold Pass") }}</button>
       </form>
+    </div>
+    <div class="grid-2col mt-1">
       <form action="{{ url_for('edit_other') }}" method="post" class="inline-form">
-        <input type="hidden" name="other_action" value="medals">
-        <button type="submit" class="btn">{{ t("Edit Medals") }}</button>
+        <input type="hidden" name="other_action" value="medals"><input type="number" name="medal_id" class="input" min="0" placeholder="Medal ID" required>
+        <select name="mode" class="input input-sm"><option value="add">Add</option><option value="remove">Remove</option></select><button class="btn btn-sm">{{ t("Apply") }}</button>
       </form>
       <form action="{{ url_for('edit_other') }}" method="post" class="inline-form">
-        <input type="hidden" name="other_action" value="missions">
-        <button type="submit" class="btn">{{ t("Edit Missions") }}</button>
+        <input type="hidden" name="other_action" value="missions"><input type="number" name="mission_id" class="input" min="0" placeholder="Mission ID" required>
+        <select name="state" class="input input-sm"><option value="2">Complete + claim</option><option value="1">Complete</option><option value="0">Incomplete</option></select><button class="btn btn-sm">{{ t("Apply") }}</button>
+      </form>
+      <form action="{{ url_for('edit_other') }}" method="post" class="inline-form">
+        <input type="hidden" name="other_action" value="talent_orbs"><input type="number" name="orb_id" class="input" min="0" placeholder="Orb ID" required><input type="number" name="value" class="input" min="0" value="1"><button class="btn btn-sm">{{ t("Set") }}</button>
+      </form>
+      <form action="{{ url_for('edit_other') }}" method="post" class="inline-form">
+        <input type="hidden" name="other_action" value="special_skills"><button class="btn btn-sm">{{ t("Max Special Skills") }}</button>
       </form>
     </div>
   </div>
@@ -675,6 +755,25 @@
 <!-- ======== CONFIG ======== -->
 <section id="section-config" class="section">
   <h2 class="section-title">{{ t("Configuration") }}</h2>
+  <div class="card">
+    <h3 class="card-title">{{ t("Editor Data") }}</h3>
+    <div class="grid-2col">
+      <form action="{{ url_for('manage_game_data') }}" method="post" class="inline-form">
+        <input type="hidden" name="game_data_action" value="add">
+        <select name="cc" class="input input-sm"><option>en</option><option>jp</option><option>kr</option><option>tw</option></select>
+        <input type="text" name="version" class="input" placeholder="14.4.0" required><button class="btn btn-sm">{{ t("Download Game Data") }}</button>
+      </form>
+      <form action="{{ url_for('manage_game_data') }}" method="post" class="inline-form">
+        <input type="hidden" name="game_data_action" value="delete">
+        <select name="cc" class="input input-sm"><option>en</option><option>jp</option><option>kr</option><option>tw</option></select>
+        <input type="text" name="version" class="input" placeholder="14.4.0" required><button class="btn btn-sm">{{ t("Delete Game Data") }}</button>
+      </form>
+      <form action="{{ url_for('update_external_content') }}" method="post" class="inline-form"><button class="btn btn-sm">{{ t("Update External Themes / Locales") }}</button></form>
+    </div>
+    <div class="mt-1 field-label">
+      {% for cc, versions in game_data_versions.items() %}{{ cc }}: {{ versions|join(', ') }}{% if not loop.last %}<br>{% endif %}{% endfor %}
+    </div>
+  </div>
   <div class="card">
     <form action="{{ url_for('edit_config') }}" method="post">
       {% for key, (desc, kind) in config_keys %}
